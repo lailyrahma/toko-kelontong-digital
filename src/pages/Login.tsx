@@ -1,96 +1,130 @@
 
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useUser } from '@/contexts/UserContext';
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
+import { Separator } from '@/components/ui/separator';
+import { ShoppingCart, User, Lock } from 'lucide-react';
+import { useUser } from '@/contexts/UserContext';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const { login } = useUser();
+  const [isLoading, setIsLoading] = useState(false);
+  const { login, user, loading } = useUser();
   const navigate = useNavigate();
-  const { toast } = useToast();
 
-  const handleLogin = async (e: React.FormEvent) => {
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/', { replace: true });
+    }
+  }, [user, loading, navigate]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
+    
+    if (!email || !password) {
+      toast.error('Mohon isi email dan password');
+      return;
+    }
 
+    setIsLoading(true);
+    
     try {
       const success = await login(email, password);
       if (success) {
-        toast({
-          title: "Login Berhasil",
-          description: "Selamat datang di dashboard POS!",
-        });
-        navigate('/');
-      } else {
-        toast({
-          title: "Login Gagal",
-          description: "Email atau password salah",
-          variant: "destructive",
-        });
+        navigate('/', { replace: true });
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Terjadi kesalahan saat login",
-        variant: "destructive",
-      });
+      console.error('Login error:', error);
+      toast.error('Terjadi kesalahan saat login');
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Memuat...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-20 h-20 bg-primary rounded-full flex items-center justify-center mb-4">
-            <span className="text-2xl font-bold text-white">TB</span>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <Card className="w-full max-w-md shadow-xl">
+        <CardHeader className="text-center pb-2">
+          <div className="w-16 h-16 bg-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <ShoppingCart className="h-8 w-8 text-white" />
           </div>
-          <CardTitle className="text-2xl font-bold text-primary">Toko Barokah</CardTitle>
-          <CardDescription>Sistem Point of Sale</CardDescription>
+          <CardTitle className="text-2xl font-bold text-gray-900">
+            Toko Kelontong Barokah
+          </CardTitle>
+          <CardDescription className="text-gray-600">
+            Masuk ke sistem Point of Sale
+          </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
+        
+        <CardContent className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Masukkan email Anda"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
+              <Label htmlFor="email" className="text-sm font-medium text-gray-700">
+                Email
+              </Label>
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Masukkan email Anda"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Masukkan password Anda"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
+              <Label htmlFor="password" className="text-sm font-medium text-gray-700">
+                Password
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  id="password"
+                  type="password"
+                  placeholder="Masukkan password Anda"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="pl-10"
+                  required
+                />
+              </div>
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Masuk...' : 'Masuk'}
+            
+            <Button 
+              type="submit" 
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Memproses...' : 'Masuk'}
             </Button>
           </form>
           
-          <div className="mt-6 p-4 bg-muted rounded-lg">
-            <h4 className="font-semibold mb-2">Demo Login:</h4>
-            <div className="text-sm space-y-1">
-              <p><strong>Kasir:</strong> kasir@toko.com / kasir123</p>
-              <p><strong>Pemilik:</strong> pemilik@toko.com / pemilik123</p>
-            </div>
+          <Separator />
+          
+          <div className="space-y-2 text-sm text-gray-600 bg-gray-50 p-3 rounded-lg">
+            <p className="font-medium">Akun Demo:</p>
+            <p>📧 Kasir: kasir@toko.com / kasir123</p>
+            <p>👑 Pemilik: pemilik@toko.com / pemilik123</p>
           </div>
         </CardContent>
       </Card>

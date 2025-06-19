@@ -1,0 +1,131 @@
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+
+export interface Transaction {
+  id: string;
+  transaction_number: string;
+  user_id: string | null;
+  total_amount: number;
+  payment_method: string;
+  payment_amount: number;
+  change_amount: number;
+  status: string;
+  created_at: string;
+  transaction_items?: TransactionItem[];
+  users?: {
+    name_user: string;
+  };
+}
+
+export interface TransactionItem {
+  id: string;
+  transaction_id: string | null;
+  product_id: string | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+  created_at: string;
+  products?: {
+    name: string;
+    barcode: string | null;
+  };
+}
+
+export interface CreateTransactionData {
+  total_amount: number;
+  payment_method: string;
+  payment_amount: number;
+  change_amount: number;
+  user_id?: string;
+  items: {
+    product_id: string;
+    quantity: number;
+    unit_price: number;
+    subtotal: number;
+  }[];
+}
+
+export const useTransactions = () => {
+  return useQuery({
+    queryKey: ['transactions'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          *,
+          users (
+            name_user
+          ),
+          transaction_items (
+            *,
+            products (
+              name,
+              barcode
+            )
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching transactions:', error);
+        throw error;
+      }
+
+      return data as Transaction[];
+    },
+  });
+};
+
+export const useCreateTransaction = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (transactionData: CreateTransactionData) => {
+      // Start a transaction
+      const { data: transaction, error: transactionError } = await supabase
+        .from('transactions')
+        .insert({
+          total_amount: transactionData.total_amount,
+          payment_method: transactionData.payment_method,
+          payment_amount: transactionData.payment_amount,
+          change_amount: transactionData.change_amount,
+          user_id: transactionData.user_id,
+        })
+        .select()
+        .single();
+
+      if (transactionError) {
+        console.error('Error creating transaction:', transactionError);
+        throw transactionError;
+      }
+
+      // Insert transaction items
+      const items = transactionData.items.map(item => ({
+        ...item,
+        transaction_id: transaction.id,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('transaction_items')
+        .insert(items);
+
+      if (itemsError) {
+        console.error('Error creating transaction items:', itemsError);
+        throw itemsError;
+      }
+
+      return transaction;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+      toast.success('Transaksi berhasil disimpan');
+    },
+    onError: (error) => {
+      console.error('Error creating transaction:', error);
+      toast.error('Gagal menyimpan transaksi');
+    },
+  });
+};
