@@ -106,22 +106,61 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      
+      // Untuk demo, kita akan simulasi login dengan data yang ada
+      // Cari user berdasarkan email di database
+      const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .single();
 
-      if (error) {
-        toast.error('Login gagal: ' + error.message);
+      if (userError || !userData) {
+        toast.error('Email tidak ditemukan atau salah');
         return false;
       }
 
-      if (data.user) {
-        toast.success('Login berhasil!');
-        return true;
+      // Validasi password sederhana untuk demo
+      const validPasswords: Record<string, string> = {
+        'kasir@toko.com': 'kasir123',
+        'pemilik@toko.com': 'pemilik123',
+        'kasir2@toko.com': 'kasir123'
+      };
+
+      if (validPasswords[email] !== password) {
+        toast.error('Password salah');
+        return false;
       }
 
-      return false;
+      // Set user data
+      setUser({
+        id: userData.id_user,
+        name: userData.name_user,
+        email: userData.email,
+        phone: userData.phone || '',
+        address: userData.address || '',
+        role: userData.role as 'kasir' | 'pemilik'
+      });
+
+      // Simulasi session untuk demo
+      setSession({
+        access_token: 'demo-token',
+        refresh_token: 'demo-refresh',
+        expires_in: 3600,
+        token_type: 'bearer',
+        user: {
+          id: userData.id_user,
+          email: userData.email,
+          aud: 'authenticated',
+          role: 'authenticated',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        } as SupabaseUser
+      } as Session);
+
+      toast.success('Login berhasil!');
+      return true;
+
     } catch (error) {
       console.error('Login error:', error);
       toast.error('Terjadi kesalahan saat login');
@@ -133,14 +172,9 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = async () => {
     try {
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        toast.error('Logout gagal: ' + error.message);
-      } else {
-        toast.success('Logout berhasil!');
-        setUser(null);
-        setSession(null);
-      }
+      setUser(null);
+      setSession(null);
+      toast.success('Logout berhasil!');
     } catch (error) {
       console.error('Logout error:', error);
       toast.error('Terjadi kesalahan saat logout');
